@@ -1,0 +1,185 @@
+import requests
+from bs4 import BeautifulSoup
+
+
+def display_result_table(result_table, day_list, time_list, staff_name_list):
+    column_i = 0
+    for result_row in result_table:
+        print(day_list[column_i])
+        row_i = 0
+        for result_cell in result_row:
+            staff = ''
+            print(time_list[row_i], end=' ')
+            if result_cell is None:
+                result_text = 'n'
+                print(result_text, end='')
+            else:
+                cell_i = 0
+                for result in result_cell:
+                    if result:
+                        result_text = 'o'
+                        staff += staff_name_list[cell_i] + ','
+                    else:
+                        result_text = 'x'
+                    print(result_text, end=' ')
+                    cell_i += 1
+                print(staff, end='')
+            print('')
+            row_i += 1
+        print('\n')
+        column_i += 1
+
+
+def get_day_list(th_tags, debug):
+    day_list = []
+
+    for th_tag in th_tags:
+        day = th_tag.text.replace('\t', '').split('\n')[1]
+        if debug:
+            print(day)
+        day_list.append(day)
+
+    return day_list
+
+
+def get_time_list(th_tags, debug):
+    time_list = []
+
+    for th_tag in th_tags:
+        if debug:
+            print(th_tag.text)
+        time_list.append(th_tag.text)
+
+    return time_list
+
+
+def init_result_table():
+    result_table = []
+    for column_i in range(14):
+        result_table_row = []
+        for row_i in range(52):
+            result_table_row.append(None)
+        result_table.append(result_table_row)
+
+    return result_table
+
+
+def check_staff_schedule(session, store_id, coupon_id, staff_list, debug):
+    result_table = init_result_table()
+    staff_name_list = []
+    day_list = []
+    time_list = []
+
+    for staff in staff_list:
+        staff_url = f'https://beauty.hotpepper.jp/CSP/kr/reserve/schedule?storeId={store_id}&couponId={coupon_id}' \
+                    f'&add=0&staffId={staff[0]}'
+        staff_name_list.append(staff[1])
+
+        res = session.get(staff_url)
+        res.encoding = res.apparent_encoding
+        soup = BeautifulSoup(res.text, 'html.parser')
+
+        # 日付リスト取得
+        if len(day_list) == 0:
+            th_tags = soup.select('.dayCellContainer th')
+            day_list = get_day_list(th_tags, debug)
+
+        # 時刻リスト取得
+        if len(time_list) == 0:
+            th_tags = soup.select('.moreInnerTable.timeTableLeft tr th')
+            time_list = get_time_list(th_tags, debug)
+
+        table_tags = soup.select('table[class=moreInnerTable]')
+        column_i = 0
+
+        table_tags_num = len(table_tags)
+        if debug:
+            print(f'table_tags_num: {table_tags_num}')
+
+        for table_tags_c in range(table_tags_num):
+            row_i = 0
+            td_tags = soup.select('table[class=moreInnerTable]')[table_tags_c].select('tr td')
+
+            result_row = result_table[column_i]
+            if debug:
+                print(f'td_tags_num: {len(list(td_tags))}')
+
+            for td_tag in td_tags:
+                if debug:
+                    print(f'col: {column_i}, row: {row_i}')
+                result_bool = None
+
+                if '×' in td_tag.text:
+                    result_bool = False
+                    if debug:
+                        print('x')
+                elif '◎' in td_tag.text:
+                    result_bool = True
+                    if debug:
+                        print('o')
+
+                result_cell = result_row[row_i]
+                if result_cell is None:
+                    result_cell = [result_bool]
+                else:
+                    result_cell.append(result_bool)
+
+                result_row[row_i] = result_cell
+                row_i += 1
+
+            result_table[column_i] = result_row
+            column_i += 1
+
+    display_result_table(result_table, day_list, time_list, staff_name_list)
+
+
+def get_staffs(session, store_id, debug):
+    staffs_url = f'https://beauty.hotpepper.jp/CSP/kr/reserve/scheduledStaff?storeId={store_id}'
+    res = session.get(staffs_url)
+    res.encoding = res.apparent_encoding
+    soup = BeautifulSoup(res.text, 'html.parser')
+
+    staff_id_list = []
+    a_tags = soup.select('.bdGrayR.w148 div div a')
+    for a_tag in a_tags:
+        staff_id = a_tag['class'][1].split('_')[1]
+        if debug:
+            print(staff_id)
+        staff_id_list.append(staff_id)
+
+    staff_name_list = []
+    p_tags = soup.select('.bdGrayR.w148 div .mT5')
+    for p_tag in p_tags:
+        staff_name = p_tag.text.split(' ')[0]
+        if debug:
+            print(staff_name)
+        staff_name_list.append(staff_name)
+
+    return zip(staff_id_list, staff_name_list)
+
+
+def create_session(store_id, coupon_id):
+    top_url = 'https://beauty.hotpepper.jp/kr/sln' + store_id
+    reserve_url = 'https://beauty.hotpepper.jp/CSP/kr/reserve/?storeId=' + store_id
+    coupon_url = 'https://beauty.hotpepper.jp/CSP/kr/reserve/afterCoupon?storeId=' + store_id + '&couponId=' \
+                 + coupon_id + '&add=0'
+
+    session = requests.Session()
+    session.get(top_url)
+    session.get(reserve_url)
+    session.get(coupon_url)
+    return session
+
+
+if __name__ == '__main__':
+    DEBUG = False
+    _store_id = 'H000471245'
+    _coupon_id = 'CP00000006005306'  # 45分
+    # _coupon_id = 'CP00000005985046'  # 60分
+    # _coupon_id = 'CP00000005985110'  # 90分
+
+    _staff_id = 'W000713343'
+
+    _session = create_session(_store_id, _coupon_id)
+    _staff_list = get_staffs(_session, _store_id, DEBUG)
+    check_staff_schedule(_session, _store_id, _coupon_id, _staff_list, DEBUG)
