@@ -18,7 +18,13 @@ def display_result_table(result_table, day_list, time_list, staff_name_list):
                 for result in result_cell:
                     if result:
                         result_text = 'o'
-                        staff += staff_name_list[cell_i] + ','
+                        if staff_name_list[cell_i] is None:
+                            if staff == '':
+                                staff += 'WARNING!'
+                            else:
+                                staff += 'OK!'
+                        else:
+                            staff += staff_name_list[cell_i] + ','
                     else:
                         result_text = 'x'
                     print(result_text, end=' ')
@@ -71,21 +77,25 @@ def check_staff_schedule(session, store_id, coupon_id, staff_list, debug):
     time_list = []
 
     for staff in staff_list:
-        staff_url = f'https://beauty.hotpepper.jp/CSP/kr/reserve/schedule?storeId={store_id}&couponId={coupon_id}' \
-                    f'&add=0&staffId={staff[0]}'
-        staff_name_list.append(staff[1])
+        if staff[0] is None:
+            staff_url = f'https://beauty.hotpepper.jp/CSP/kr/reserve/salonSchedule?storeId={store_id}'
+            staff_name_list.append(None)
+        else:
+            staff_url = f'https://beauty.hotpepper.jp/CSP/kr/reserve/schedule?storeId={store_id}&couponId={coupon_id}' \
+                        f'&add=0&staffId={staff[0]}'
+            staff_name_list.append(staff[1])
 
         res = session.get(staff_url)
         res.encoding = res.apparent_encoding
         soup = BeautifulSoup(res.text, 'html.parser')
 
         # 日付リスト取得
-        if len(day_list) == 0:
+        if staff[0] is not None and len(day_list) == 0:
             th_tags = soup.select('.dayCellContainer th')
             day_list = get_day_list(th_tags, debug)
 
         # 時刻リスト取得
-        if len(time_list) == 0:
+        if staff[0] is not None and len(time_list) == 0:
             th_tags = soup.select('.moreInnerTable.timeTableLeft tr th')
             time_list = get_time_list(th_tags, debug)
 
@@ -130,7 +140,7 @@ def check_staff_schedule(session, store_id, coupon_id, staff_list, debug):
             result_table[column_i] = result_row
             column_i += 1
 
-    display_result_table(result_table, day_list, time_list, staff_name_list)
+    return result_table, day_list, time_list, staff_name_list
 
 
 def get_staffs(session, store_id, debug):
@@ -146,6 +156,8 @@ def get_staffs(session, store_id, debug):
         if debug:
             print(staff_id)
         staff_id_list.append(staff_id)
+    # 最後に全体のスケジュールと照合するため
+    staff_id_list.append(None)
 
     staff_name_list = []
     p_tags = soup.select('.bdGrayR.w148 div .mT5')
@@ -154,6 +166,8 @@ def get_staffs(session, store_id, debug):
         if debug:
             print(staff_name)
         staff_name_list.append(staff_name)
+    # 最後に全体のスケジュールと照合するため
+    staff_name_list.append(None)
 
     return zip(staff_id_list, staff_name_list)
 
@@ -182,4 +196,6 @@ if __name__ == '__main__':
 
     _session = create_session(_store_id, _coupon_id)
     _staff_list = get_staffs(_session, _store_id, DEBUG)
-    check_staff_schedule(_session, _store_id, _coupon_id, _staff_list, DEBUG)
+    _result_table, _day_list, _time_list, _staff_name_list = check_staff_schedule(_session, _store_id, _coupon_id,
+                                                                                  _staff_list, DEBUG)
+    display_result_table(_result_table, _day_list, _time_list, _staff_name_list)
