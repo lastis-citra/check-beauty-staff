@@ -192,8 +192,6 @@ if __name__ == '__main__':
     # _coupon_id = 'CP00000005985046'  # 60分
     # _coupon_id = 'CP00000005985110'  # 90分
 
-    _staff_id = 'W000713343'
-
     _session = create_session(_store_id, _coupon_id)
     _staff_list = get_staffs(_session, _store_id, DEBUG)
     _result_table, _day_list, _time_list, _staff_name_list = check_staff_schedule(_session, _store_id, _coupon_id,
