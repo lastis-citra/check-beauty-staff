@@ -146,8 +146,9 @@ def check_staff_schedule(session, store_id, coupon_id, staff_list, debug):
 def get_staffs(session, store_id, debug):
     staffs_url = f'https://beauty.hotpepper.jp/CSP/kr/reserve/scheduledStaff?storeId={store_id}'
     res = session.get(staffs_url)
-    res.encoding = res.apparent_encoding
-    soup = BeautifulSoup(res.text, 'html.parser')
+    # res.encoding = res.apparent_encoding
+    # soup = BeautifulSoup(res.text, 'html.parser')
+    soup = BeautifulSoup(res.content, 'html.parser')
 
     staff_id_list = []
     a_tags = soup.select('.bdGrayR.w148 div div a')
