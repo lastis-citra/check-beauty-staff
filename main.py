@@ -64,7 +64,7 @@ def init_result_table():
     for column_i in range(14):
         result_table_row = []
         for row_i in range(52):
-            result_table_row.append(None)
+            result_table_row.append([])
         result_table.append(result_table_row)
 
     return result_table
@@ -129,7 +129,7 @@ def check_staff_schedule(session, store_id, coupon_id, staff_list, debug):
                         print('o')
 
                 result_cell = result_row[row_i]
-                if result_cell is None:
+                if len(result_cell) == 0:
                     result_cell = [result_bool]
                 else:
                     result_cell.append(result_bool)
