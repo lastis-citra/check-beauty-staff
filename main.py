@@ -59,11 +59,14 @@ def get_time_list(th_tags, debug):
     return time_list
 
 
-def init_result_table():
+def init_result_table(max_col, max_row, debug):
+    if debug:
+        print(f'max_col: {max_col}, max_row: {max_row}')
+
     result_table = []
-    for column_i in range(14):
+    for column_i in range(max_col):
         result_table_row = []
-        for row_i in range(52):
+        for row_i in range(max_row):
             result_table_row.append([])
         result_table.append(result_table_row)
 
@@ -71,11 +74,12 @@ def init_result_table():
 
 
 def check_staff_schedule(session, store_id, coupon_id, staff_list, debug):
-    result_table = init_result_table()
+    result_table = []
     staff_name_list = []
     day_list = []
     time_list = []
 
+    staff_i = 0
     for staff in staff_list:
         if staff[0] is None:
             staff_url = f'https://beauty.hotpepper.jp/CSP/kr/reserve/salonSchedule?storeId={store_id}'
@@ -99,6 +103,7 @@ def check_staff_schedule(session, store_id, coupon_id, staff_list, debug):
             th_tags = soup.select('.moreInnerTable.timeTableLeft tr th')
             time_list = get_time_list(th_tags, debug)
 
+        # 表の日数（何日分の列があるか，通常14日分）
         table_tags = soup.select('table[class=moreInnerTable]')
         column_i = 0
 
@@ -108,15 +113,20 @@ def check_staff_schedule(session, store_id, coupon_id, staff_list, debug):
 
         for table_tags_c in range(table_tags_num):
             row_i = 0
+            # 各列に何個分の◎✕があるか
             td_tags = soup.select('table[class=moreInnerTable]')[table_tags_c].select('tr td')
 
-            result_row = result_table[column_i]
             if debug:
                 print(f'td_tags_num: {len(list(td_tags))}')
 
+            if staff_i == 0 and column_i == 0 and row_i == 0:
+                result_table = init_result_table(table_tags_num, len(list(td_tags)), debug)
+
+            result_row = result_table[column_i]
+
             for td_tag in td_tags:
                 if debug:
-                    print(f'col: {column_i}, row: {row_i}')
+                    print(f'staff: {staff_i}, col: {column_i}, row: {row_i}')
                 result_bool = None
 
                 if '×' in td_tag.text:
@@ -139,6 +149,7 @@ def check_staff_schedule(session, store_id, coupon_id, staff_list, debug):
 
             result_table[column_i] = result_row
             column_i += 1
+        staff_i += 1
 
     return result_table, day_list, time_list, staff_name_list
 
@@ -170,7 +181,7 @@ def get_staffs(session, store_id, debug):
     # 最後に全体のスケジュールと照合するため
     staff_name_list.append(None)
 
-    return zip(staff_id_list, staff_name_list)
+    return list(zip(staff_id_list, staff_name_list))
 
 
 def create_session(store_id, coupon_id):
@@ -188,10 +199,11 @@ def create_session(store_id, coupon_id):
 
 if __name__ == '__main__':
     DEBUG = False
-    _store_id = 'H000471245'
-    # _coupon_id = 'CP00000006005306'  # 45分
-    _coupon_id = 'CP00000005985046'  # 60分
-    # _coupon_id = 'CP00000005985110'  # 90分
+    # _store_id = 'H000471245'
+    # _coupon_id = 'CP00000005985046'  # 60分
+
+    _store_id = 'H000584797'
+    _coupon_id = 'CP00000007682902'  # 80分+10分
 
     _session = create_session(_store_id, _coupon_id)
     _staff_list = get_staffs(_session, _store_id, DEBUG)
